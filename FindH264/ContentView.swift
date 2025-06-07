@@ -18,6 +18,14 @@ enum SortType: String, CaseIterable, Identifiable {
     var id: String { self.rawValue }
 }
 
+// Функция форматирования размера файла, доступна во всём файле
+func formatFileSize(_ size: Int64) -> String {
+    let formatter = ByteCountFormatter()
+    formatter.allowedUnits = [.useMB]
+    formatter.countStyle = .file
+    return formatter.string(fromByteCount: size)
+}
+
 struct ContentView: View {
     @State private var h264Videos: [PHAsset] = []
     @State private var isAuthorized = false
@@ -38,43 +46,49 @@ struct ContentView: View {
         }
     }
 
+    var totalSize: Int64 {
+        sortedVideos.reduce(0) { $0 + (fileSizes[$1.localIdentifier] ?? 0) }
+    }
+
     var body: some View {
         NavigationView {
-            Group {
-                if !isAuthorized {
-                    VStack {
-                        Text("Доступ к фотографиям не разрешен")
-                            .font(.headline)
-                        Button("Запросить доступ") {
-                            requestPhotoLibraryAccess()
-                        }
-                        .padding()
+            if !isAuthorized {
+                VStack {
+                    Text("Доступ к фотографиям не разрешен")
+                        .font(.headline)
+                    Button("Запросить доступ") {
+                        requestPhotoLibraryAccess()
                     }
-                } else if isLoading {
-                    ProgressView("Поиск видео...")
-                } else {
-                    VStack {
-                        Picker("Сортировка", selection: $sortType) {
-                            ForEach(SortType.allCases) { type in
-                                Text(type.rawValue).tag(type)
+                    .padding()
+                }
+            } else if isLoading {
+                ProgressView("Поиск видео...")
+            } else {
+                VStack(spacing: 8) {
+                    // Информация о количестве и размере
+                    Text("Видео: \(sortedVideos.count), общий размер: \(formatFileSize(totalSize))")
+                        .font(.subheadline)
+                        .padding(.top)
+                    Picker("Сортировка", selection: $sortType) {
+                        ForEach(SortType.allCases) { type in
+                            Text(type.rawValue).tag(type)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding([.horizontal, .top])
+                    List(sortedVideos, id: \.localIdentifier) { asset in
+                        VideoRow(asset: asset, fileSizes: $fileSizes)
+                            .onTapGesture {
+                                selectedVideo = asset
+                                showingVideoPreview = true
                             }
-                        }
-                        .pickerStyle(.segmented)
-                        .padding([.horizontal, .top])
-                        List(sortedVideos, id: \.localIdentifier) { asset in
-                            VideoRow(asset: asset, fileSizes: $fileSizes)
-                                .onTapGesture {
-                                    selectedVideo = asset
-                                    showingVideoPreview = true
-                                }
-                        }
-                        .listStyle(.plain)
                     }
-                    .navigationTitle("H264 Видео")
-                    .sheet(isPresented: $showingVideoPreview) {
-                        if let asset = selectedVideo {
-                            VideoPreviewView(asset: asset)
-                        }
+                    .listStyle(.plain)
+                }
+                .navigationTitle("H264 Видео")
+                .sheet(isPresented: $showingVideoPreview) {
+                    if let asset = selectedVideo {
+                        VideoPreviewView(asset: asset)
                     }
                 }
             }
@@ -176,13 +190,6 @@ struct VideoRow: View {
                 fileSizes[asset.localIdentifier] = self.fileSize
             }
         }
-    }
-
-    private func formatFileSize(_ size: Int64) -> String {
-        let formatter = ByteCountFormatter()
-        formatter.allowedUnits = [.useMB]
-        formatter.countStyle = .file
-        return formatter.string(fromByteCount: size)
     }
 
     private func formatDate(_ date: Date?) -> String {
