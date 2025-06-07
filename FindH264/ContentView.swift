@@ -8,8 +8,13 @@
 import SwiftUI
 import Photos
 import AVFoundation
+#if os(iOS)
 import UIKit
 import AVKit
+#elseif os(macOS)
+import AppKit
+import AVKit
+#endif
 
 func formatFileSize(_ size: Int64) -> String {
     let formatter = ByteCountFormatter()
@@ -94,7 +99,11 @@ struct ContentView: View {
                 .navigationTitle("H264 Видео")
                 .sheet(isPresented: $showingVideoPreview) {
                     if let video = selectedVideo {
+                        #if os(iOS)
                         VideoPreviewView(asset: video.asset)
+                        #elseif os(macOS)
+                        VideoPreviewViewMac(asset: video.asset)
+                        #endif
                     }
                 }
             }
@@ -105,14 +114,23 @@ struct ContentView: View {
     }
 
     private func checkPhotoLibraryAuthorization() {
+        #if os(iOS)
         let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
         isAuthorized = status == .authorized
         if isAuthorized {
             findH264Videos()
         }
+        #elseif os(macOS)
+        let status = PHPhotoLibrary.authorizationStatus()
+        isAuthorized = status == .authorized
+        if isAuthorized {
+            findH264Videos()
+        }
+        #endif
     }
 
     private func requestPhotoLibraryAccess() {
+        #if os(iOS)
         PHPhotoLibrary.requestAuthorization(for: .readWrite) { status in
             DispatchQueue.main.async {
                 isAuthorized = status == .authorized
@@ -121,6 +139,18 @@ struct ContentView: View {
                 }
             }
         }
+        #elseif os(macOS)
+        // Dummy fetch to trigger system alert
+        let _ = PHAsset.fetchAssets(with: .image, options: nil)
+        PHPhotoLibrary.requestAuthorization { status in
+            DispatchQueue.main.async {
+                isAuthorized = status == .authorized
+                if isAuthorized {
+                    findH264Videos()
+                }
+            }
+        }
+        #endif
     }
 
     private func findH264Videos() {
@@ -159,9 +189,15 @@ struct VideoRow: View {
     let video: VideoInfo
     var body: some View {
         HStack {
+            #if os(iOS)
             VideoThumbnail(asset: video.asset)
                 .frame(width: 60, height: 60)
                 .cornerRadius(8)
+            #elseif os(macOS)
+            VideoThumbnailMac(asset: video.asset)
+                .frame(width: 60, height: 60)
+                .cornerRadius(8)
+            #endif
             VStack(alignment: .leading, spacing: 4) {
                 Text("Видео")
                     .font(.headline)
@@ -201,6 +237,7 @@ struct VideoRow: View {
     }
 }
 
+#if os(iOS)
 struct VideoPreviewView: View {
     let asset: PHAsset
     @Environment(\.dismiss) private var dismiss
@@ -272,6 +309,81 @@ struct VideoThumbnail: View {
         }
     }
 }
+#endif
+
+#if os(macOS)
+struct VideoPreviewViewMac: View {
+    let asset: PHAsset
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        VStack {
+            VideoPlayerViewMac(asset: asset)
+                .frame(minWidth: 600, minHeight: 400)
+            Button("Закрыть") {
+                dismiss()
+            }
+            .padding()
+        }
+        .padding()
+    }
+}
+
+struct VideoPlayerViewMac: NSViewRepresentable {
+    let asset: PHAsset
+    func makeNSView(context: Context) -> AVPlayerView {
+        let view = AVPlayerView()
+        let options = PHVideoRequestOptions()
+        options.version = .current
+        options.deliveryMode = .highQualityFormat
+        PHImageManager.default().requestPlayerItem(forVideo: asset, options: options) { playerItem, _ in
+            if let playerItem = playerItem {
+                DispatchQueue.main.async {
+                    let player = AVPlayer(playerItem: playerItem)
+                    view.player = player
+                    player.play()
+                }
+            }
+        }
+        return view
+    }
+    func updateNSView(_ nsView: AVPlayerView, context: Context) {}
+}
+
+struct VideoThumbnailMac: View {
+    let asset: PHAsset
+    @State private var thumbnail: NSImage?
+    var body: some View {
+        Group {
+            if let thumbnail = thumbnail {
+                Image(nsImage: thumbnail)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } else {
+                Color.gray
+            }
+        }
+        .onAppear {
+            generateThumbnail()
+        }
+    }
+    private func generateThumbnail() {
+        let manager = PHImageManager.default()
+        let option = PHImageRequestOptions()
+        option.isSynchronous = false
+        option.deliveryMode = .highQualityFormat
+        manager.requestImage(for: asset,
+                           targetSize: CGSize(width: 200, height: 200),
+                           contentMode: .aspectFill,
+                           options: option) { image, _ in
+            if let image = image {
+                DispatchQueue.main.async {
+                    self.thumbnail = image
+                }
+            }
+        }
+    }
+}
+#endif
 
 #Preview {
     ContentView()
