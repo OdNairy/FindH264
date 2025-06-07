@@ -11,14 +11,6 @@ import AVFoundation
 import UIKit
 import AVKit
 
-enum SortType: String, CaseIterable, Identifiable {
-    case date = "По дате"
-    case size = "По размеру"
-    case duration = "По длительности"
-    var id: String { self.rawValue }
-}
-
-// Функция форматирования размера файла, доступна во всём файле
 func formatFileSize(_ size: Int64) -> String {
     let formatter = ByteCountFormatter()
     formatter.allowedUnits = [.useMB]
@@ -26,28 +18,42 @@ func formatFileSize(_ size: Int64) -> String {
     return formatter.string(fromByteCount: size)
 }
 
+enum SortType: String, CaseIterable, Identifiable {
+    case date = "По дате"
+    case size = "По размеру"
+    case duration = "По длительности"
+    var id: String { self.rawValue }
+}
+
+struct VideoInfo: Identifiable {
+    let id: String
+    let asset: PHAsset
+    let size: Int64
+    let duration: TimeInterval
+    let creationDate: Date?
+}
+
 struct ContentView: View {
-    @State private var h264Videos: [PHAsset] = []
+    @State private var videos: [VideoInfo] = []
     @State private var isAuthorized = false
     @State private var isLoading = false
-    @State private var selectedVideo: PHAsset?
+    @State private var selectedVideo: VideoInfo?
     @State private var showingVideoPreview = false
-    @State private var sortType: SortType = .date
-    @State private var fileSizes: [String: Int64] = [:] // localIdentifier -> size
+    @State private var sortType: SortType = .size
 
-    var sortedVideos: [PHAsset] {
+    var sortedVideos: [VideoInfo] {
         switch sortType {
         case .date:
-            return h264Videos.sorted { ($0.creationDate ?? .distantPast) > ($1.creationDate ?? .distantPast) }
+            return videos.sorted { ($0.creationDate ?? .distantPast) > ($1.creationDate ?? .distantPast) }
         case .size:
-            return h264Videos.sorted { (fileSizes[$0.localIdentifier] ?? 0) > (fileSizes[$1.localIdentifier] ?? 0) }
+            return videos.sorted { $0.size > $1.size }
         case .duration:
-            return h264Videos.sorted { $0.duration > $1.duration }
+            return videos.sorted { $0.duration > $1.duration }
         }
     }
 
     var totalSize: Int64 {
-        sortedVideos.reduce(0) { $0 + (fileSizes[$1.localIdentifier] ?? 0) }
+        videos.reduce(0) { $0 + $1.size }
     }
 
     var body: some View {
@@ -62,10 +68,10 @@ struct ContentView: View {
                     .padding()
                 }
             } else if isLoading {
-                ProgressView("Поиск видео...")
+                ProgressView("Поиск и обработка видео...")
+                    .padding()
             } else {
                 VStack(spacing: 8) {
-                    // Информация о количестве и размере
                     Text("Видео: \(sortedVideos.count), общий размер: \(formatFileSize(totalSize))")
                         .font(.subheadline)
                         .padding(.top)
@@ -76,10 +82,10 @@ struct ContentView: View {
                     }
                     .pickerStyle(.segmented)
                     .padding([.horizontal, .top])
-                    List(sortedVideos, id: \.localIdentifier) { asset in
-                        VideoRow(asset: asset, fileSizes: $fileSizes)
+                    List(sortedVideos) { video in
+                        VideoRow(video: video)
                             .onTapGesture {
-                                selectedVideo = asset
+                                selectedVideo = video
                                 showingVideoPreview = true
                             }
                     }
@@ -87,8 +93,8 @@ struct ContentView: View {
                 }
                 .navigationTitle("H264 Видео")
                 .sheet(isPresented: $showingVideoPreview) {
-                    if let asset = selectedVideo {
-                        VideoPreviewView(asset: asset)
+                    if let video = selectedVideo {
+                        VideoPreviewView(asset: video.asset)
                     }
                 }
             }
@@ -119,79 +125,59 @@ struct ContentView: View {
 
     private func findH264Videos() {
         isLoading = true
-
-        let fetchOptions = PHFetchOptions()
-        fetchOptions.predicate = NSPredicate(format: "mediaType = %d", PHAssetMediaType.video.rawValue)
-        fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-
-        let fetchResult = PHAsset.fetchAssets(with: .video, options: fetchOptions)
-
-        // Prefetch metadata
-        let options = PHImageRequestOptions()
-        options.deliveryMode = .fastFormat
-        options.isNetworkAccessAllowed = true
-
-        fetchResult.enumerateObjects { asset, index, stop in
-            let resources = PHAssetResource.assetResources(for: asset)
-            for resource in resources {
-                if resource.uniformTypeIdentifier == "public.mpeg-4" {
-                    // Prefetch metadata
-                    PHImageManager.default().requestImageDataAndOrientation(for: asset, options: options) { _, _, _, _ in }
-
-                    DispatchQueue.main.async {
-                        h264Videos.append(asset)
+        DispatchQueue.global(qos: .userInitiated).async {
+            var result: [VideoInfo] = []
+            let fetchOptions = PHFetchOptions()
+            fetchOptions.predicate = NSPredicate(format: "mediaType = %d", PHAssetMediaType.video.rawValue)
+            let fetchResult = PHAsset.fetchAssets(with: .video, options: fetchOptions)
+            fetchResult.enumerateObjects { asset, _, _ in
+                let resources = PHAssetResource.assetResources(for: asset)
+                if let videoResource = resources.first(where: { $0.uniformTypeIdentifier == "public.mpeg-4" }) {
+                    var size: Int64 = 0
+                    if let s = videoResource.value(forKey: "fileSize") as? CLong {
+                        size = Int64(s)
                     }
+                    let info = VideoInfo(
+                        id: asset.localIdentifier,
+                        asset: asset,
+                        size: size,
+                        duration: asset.duration,
+                        creationDate: asset.creationDate
+                    )
+                    result.append(info)
                 }
             }
-        }
-
-        DispatchQueue.main.async {
-            isLoading = false
+            DispatchQueue.main.async {
+                self.videos = result
+                self.isLoading = false
+            }
         }
     }
 }
 
 struct VideoRow: View {
-    let asset: PHAsset
-    @Binding var fileSizes: [String: Int64]
-    @State private var fileSize: Int64 = 0
-
+    let video: VideoInfo
     var body: some View {
         HStack {
-            VideoThumbnail(asset: asset)
+            VideoThumbnail(asset: video.asset)
                 .frame(width: 60, height: 60)
                 .cornerRadius(8)
-
             VStack(alignment: .leading, spacing: 4) {
                 Text("Видео")
                     .font(.headline)
-                Text("Длительность: \(formatDuration(asset.duration))")
+                Text("Длительность: \(formatDuration(video.duration))")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
-                Text("Размер: \(formatFileSize(fileSize))")
+                Text("Размер: \(formatFileSize(video.size))")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
-                Text(formatDate(asset.creationDate))
+                Text(formatDate(video.creationDate))
                     .font(.subheadline)
                     .foregroundColor(.secondary)
             }
         }
         .padding(.vertical, 4)
-        .onAppear {
-            getFileSize()
-        }
     }
-
-    private func getFileSize() {
-        let resources = PHAssetResource.assetResources(for: asset)
-        if let videoResource = resources.first(where: { $0.type == .video || $0.type == .fullSizeVideo }) {
-            if let size = videoResource.value(forKey: "fileSize") as? CLong {
-                self.fileSize = Int64(size)
-                fileSizes[asset.localIdentifier] = self.fileSize
-            }
-        }
-    }
-
     private func formatDate(_ date: Date?) -> String {
         guard let date = date else { return "Неизвестная дата" }
         let formatter = DateFormatter()
@@ -200,7 +186,6 @@ struct VideoRow: View {
         formatter.locale = Locale.current
         return formatter.string(from: date)
     }
-
     private func formatDuration(_ duration: TimeInterval) -> String {
         let totalSeconds = Int(duration)
         let hours = totalSeconds / 3600
@@ -219,7 +204,6 @@ struct VideoRow: View {
 struct VideoPreviewView: View {
     let asset: PHAsset
     @Environment(\.dismiss) private var dismiss
-
     var body: some View {
         NavigationView {
             VStack {
@@ -235,14 +219,11 @@ struct VideoPreviewView: View {
 
 struct VideoPlayerView: UIViewControllerRepresentable {
     let asset: PHAsset
-
     func makeUIViewController(context: Context) -> AVPlayerViewController {
         let controller = AVPlayerViewController()
-
         let options = PHVideoRequestOptions()
         options.version = .current
         options.deliveryMode = .highQualityFormat
-
         PHImageManager.default().requestPlayerItem(forVideo: asset, options: options) { playerItem, _ in
             if let playerItem = playerItem {
                 DispatchQueue.main.async {
@@ -252,17 +233,14 @@ struct VideoPlayerView: UIViewControllerRepresentable {
                 }
             }
         }
-
         return controller
     }
-
     func updateUIViewController(_ uiViewController: AVPlayerViewController, context: Context) {}
 }
 
 struct VideoThumbnail: View {
     let asset: PHAsset
     @State private var thumbnail: UIImage?
-
     var body: some View {
         Group {
             if let thumbnail = thumbnail {
@@ -277,13 +255,11 @@ struct VideoThumbnail: View {
             generateThumbnail()
         }
     }
-
     private func generateThumbnail() {
         let manager = PHImageManager.default()
         let option = PHImageRequestOptions()
         option.isSynchronous = false
         option.deliveryMode = .highQualityFormat
-
         manager.requestImage(for: asset,
                            targetSize: CGSize(width: 200, height: 200),
                            contentMode: .aspectFill,
