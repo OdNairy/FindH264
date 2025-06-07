@@ -139,21 +139,10 @@ struct VideoRow: View {
 
     private func getFileSize() {
         let resources = PHAssetResource.assetResources(for: asset)
-        if let resource = resources.first {
-            let options = PHAssetResourceRequestOptions()
-            options.isNetworkAccessAllowed = true
-
-            var totalSize: Int64 = 0
-            PHAssetResourceManager.default().requestData(for: resource, options: options, dataReceivedHandler: { data in
-                totalSize += Int64(data.count)
-            }, completionHandler: { error in
-                DispatchQueue.main.async {
-                    self.fileSize = totalSize
-                }
-                if let error = error {
-                    print("Error getting file size: \(error.localizedDescription)")
-                }
-            })
+        if let videoResource = resources.first(where: { $0.type == .video || $0.type == .fullSizeVideo }) {
+            if let size = videoResource.value(forKey: "fileSize") as? CLong {
+                self.fileSize = Int64(size)
+            }
         }
     }
 
