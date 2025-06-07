@@ -6,17 +6,19 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		FE2F29DB2DF4C88800172FBB /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE2F29D72DF4C88800172FBB /* ContentView.swift */; };
+		FE2F29DC2DF4C88800172FBB /* FindH264App.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE2F29D92DF4C88800172FBB /* FindH264App.swift */; };
+		FE2F29DD2DF4C88800172FBB /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FE2F29D62DF4C88800172FBB /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		FE06B66F2DF4C6D2001CA07D /* FindH264.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FindH264.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		FE2F29D62DF4C88800172FBB /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		FE2F29D72DF4C88800172FBB /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		FE2F29D82DF4C88800172FBB /* FindH264.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FindH264.entitlements; sourceTree = "<group>"; };
+		FE2F29D92DF4C88800172FBB /* FindH264App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindH264App.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
-
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-		FE06B6712DF4C6D2001CA07D /* FindH264 */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = FindH264;
-			sourceTree = "<group>";
-		};
-/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		FE06B66C2DF4C6D2001CA07D /* Frameworks */ = {
@@ -32,7 +34,7 @@
 		FE06B6662DF4C6D2001CA07D = {
 			isa = PBXGroup;
 			children = (
-				FE06B6712DF4C6D2001CA07D /* FindH264 */,
+				FE2F29DA2DF4C88800172FBB /* FindH264 */,
 				FE06B6702DF4C6D2001CA07D /* Products */,
 			);
 			sourceTree = "<group>";
@@ -43,6 +45,17 @@
 				FE06B66F2DF4C6D2001CA07D /* FindH264.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		FE2F29DA2DF4C88800172FBB /* FindH264 */ = {
+			isa = PBXGroup;
+			children = (
+				FE2F29D62DF4C88800172FBB /* Assets.xcassets */,
+				FE2F29D72DF4C88800172FBB /* ContentView.swift */,
+				FE2F29D82DF4C88800172FBB /* FindH264.entitlements */,
+				FE2F29D92DF4C88800172FBB /* FindH264App.swift */,
+			);
+			path = FindH264;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -59,9 +72,6 @@
 			buildRules = (
 			);
 			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				FE06B6712DF4C6D2001CA07D /* FindH264 */,
 			);
 			name = FindH264;
 			packageProductDependencies = (
@@ -109,6 +119,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FE2F29DD2DF4C88800172FBB /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -119,6 +130,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FE2F29DB2DF4C88800172FBB /* ContentView.swift in Sources */,
+				FE2F29DC2DF4C88800172FBB /* FindH264App.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -253,6 +266,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Приложению требуется доступ к вашей библиотеке фотографий для поиска видео в формате H264";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -292,6 +306,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Приложению требуется доступ к вашей библиотеке фотографий для поиска видео в формате H264";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
