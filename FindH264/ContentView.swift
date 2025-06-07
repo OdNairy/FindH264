@@ -11,12 +11,32 @@ import AVFoundation
 import UIKit
 import AVKit
 
+enum SortType: String, CaseIterable, Identifiable {
+    case date = "По дате"
+    case size = "По размеру"
+    case duration = "По длительности"
+    var id: String { self.rawValue }
+}
+
 struct ContentView: View {
     @State private var h264Videos: [PHAsset] = []
     @State private var isAuthorized = false
     @State private var isLoading = false
     @State private var selectedVideo: PHAsset?
     @State private var showingVideoPreview = false
+    @State private var sortType: SortType = .date
+    @State private var fileSizes: [String: Int64] = [:] // localIdentifier -> size
+
+    var sortedVideos: [PHAsset] {
+        switch sortType {
+        case .date:
+            return h264Videos.sorted { ($0.creationDate ?? .distantPast) > ($1.creationDate ?? .distantPast) }
+        case .size:
+            return h264Videos.sorted { (fileSizes[$0.localIdentifier] ?? 0) > (fileSizes[$1.localIdentifier] ?? 0) }
+        case .duration:
+            return h264Videos.sorted { $0.duration > $1.duration }
+        }
+    }
 
     var body: some View {
         NavigationView {
@@ -33,12 +53,22 @@ struct ContentView: View {
                 } else if isLoading {
                     ProgressView("Поиск видео...")
                 } else {
-                    List(h264Videos, id: \.localIdentifier) { asset in
-                        VideoRow(asset: asset)
-                            .onTapGesture {
-                                selectedVideo = asset
-                                showingVideoPreview = true
+                    VStack {
+                        Picker("Сортировка", selection: $sortType) {
+                            ForEach(SortType.allCases) { type in
+                                Text(type.rawValue).tag(type)
                             }
+                        }
+                        .pickerStyle(.segmented)
+                        .padding([.horizontal, .top])
+                        List(sortedVideos, id: \.localIdentifier) { asset in
+                            VideoRow(asset: asset, fileSizes: $fileSizes)
+                                .onTapGesture {
+                                    selectedVideo = asset
+                                    showingVideoPreview = true
+                                }
+                        }
+                        .listStyle(.plain)
                     }
                     .navigationTitle("H264 Видео")
                     .sheet(isPresented: $showingVideoPreview) {
@@ -109,6 +139,7 @@ struct ContentView: View {
 
 struct VideoRow: View {
     let asset: PHAsset
+    @Binding var fileSizes: [String: Int64]
     @State private var fileSize: Int64 = 0
 
     var body: some View {
@@ -142,6 +173,7 @@ struct VideoRow: View {
         if let videoResource = resources.first(where: { $0.type == .video || $0.type == .fullSizeVideo }) {
             if let size = videoResource.value(forKey: "fileSize") as? CLong {
                 self.fileSize = Int64(size)
+                fileSizes[asset.localIdentifier] = self.fileSize
             }
         }
     }
