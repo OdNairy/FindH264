@@ -151,7 +151,7 @@ struct VideoRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Видео")
                     .font(.headline)
-                Text("Длительность: \(Int(asset.duration)) сек")
+                Text("Длительность: \(formatDuration(asset.duration))")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                 Text("Размер: \(formatFileSize(fileSize))")
@@ -192,6 +192,20 @@ struct VideoRow: View {
         formatter.timeStyle = .short
         formatter.locale = Locale.current
         return formatter.string(from: date)
+    }
+
+    private func formatDuration(_ duration: TimeInterval) -> String {
+        let totalSeconds = Int(duration)
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let seconds = totalSeconds % 60
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
+        } else if minutes > 0 {
+            return String(format: "%d:%02d", minutes, seconds)
+        } else {
+            return String(format: "%d сек", seconds)
+        }
     }
 }
 
